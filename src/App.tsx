@@ -1,9 +1,16 @@
 import React, { Component } from 'react';
 import logo from './logo.svg';
 import DataClient from "./DataClient";
-import './App.css';
 import queryString from 'query-string';
-import DataProcessor from "./DataProcessor";
+import { timeToReviewRequests, reviewersReviewed } from "./metrics";
+import moment from 'moment';
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableHead from '@material-ui/core/TableHead';
+import TableRow from '@material-ui/core/TableRow';
+import Typography from "@material-ui/core/Typography";
+import { forRequestedReviewsReviewedBy, forRequestedReviewsRequestedBetween } from "./segments";
 
 const query = queryString.parse(location.search);
 
@@ -15,7 +22,6 @@ type State = {token?: string, loaded: boolean};
 class App extends Component<{}, State> {
   state: State = {loaded: false};
   private data: DataClient = new DataClient();
-  private metrics: DataProcessor = new DataProcessor(this.data);
 
   componentDidMount() {
     this.assertAuthenticated();
@@ -45,35 +51,56 @@ class App extends Component<{}, State> {
     this.setState({token});
 
     this.data.setToken(token);
-    this.data.init().then(() => this.setState({loaded: true}));
+    this.data.load().then(() => this.setState({loaded: true}));
   };
 
   render() {
-    const reviewers = this.metrics.reviewers();
-
-    for(const reviewer of reviewers) {
-      console.log(reviewer);
-      console.log('time to review: ', this.metrics.timeToReview(reviewer).humanize());
+    if (this.state.loaded === false) {
+      return null;
     }
 
-    return (
-      <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <p>
-            Edit <code>src/App.tsx</code> and save to reload.
-          </p>
-          <a
-            className="App-link"
-            href="https://reactjs.org"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Learn React
-          </a>
-        </header>
-      </div>
-    );
+    const reviewers = reviewersReviewed(this.data);
+    const formatHours = (hours: moment.Duration) => {
+      const numHours = Math.round(hours.asHours());
+      return isNaN(numHours) || numHours === 0
+        ? null
+        : `${numHours} hour${numHours > 1 ? 's' : ''}`;
+    };
+
+    return <div>
+      <Typography variant="h3" gutterBottom>
+        time to respond to review requests
+      </Typography>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell></TableCell>
+            <TableCell>past 30 days</TableCell>
+            <TableCell>30 - 60 days</TableCell>
+            <TableCell>60 - 90 days</TableCell>
+            <TableCell>all time</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {reviewers.map(reviewer => {
+            const reviewerData = forRequestedReviewsReviewedBy(this.data, reviewer);
+            return <TableRow key={reviewer}>
+              <TableCell>{reviewer}</TableCell>
+              <TableCell>{formatHours(timeToReviewRequests(
+                forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(30, 'days'), moment())
+              ))}</TableCell>
+              <TableCell>{formatHours(timeToReviewRequests(
+                forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
+              ))}</TableCell>
+              <TableCell>{formatHours(timeToReviewRequests(
+                forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
+              ))}</TableCell>
+              <TableCell>{formatHours(timeToReviewRequests(reviewerData))}</TableCell>
+            </TableRow>;
+          })}
+        </TableBody>
+      </Table>
+    </div>;
   }
 }
 

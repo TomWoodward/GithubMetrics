@@ -1,4 +1,6 @@
 import queryString from 'query-string';
+import { DataBucket } from "./DataBucket";
+import { PullRequest } from "./types";
 
 const query = queryString.parse(location.search);
 
@@ -7,7 +9,7 @@ const repoFilter = typeof(query.repo) === 'string' ? query.repo : null;
 const cached = <T extends Array<any>>(key: string, implementation: () => Promise<T>) => async () => {
   const cacheKey = `cache:${key}${repoFilter ? `?repo=${repoFilter}` : ''}`;
   const cached = localStorage.getItem(cacheKey);
-  let result: T[];
+  let result: T;
 
   if (cached) {
     result = JSON.parse(cached || '') || [];
@@ -22,18 +24,14 @@ const cached = <T extends Array<any>>(key: string, implementation: () => Promise
   return result;
 };
 
-export default class DataClient {
+export default class DataClient extends DataBucket {
   private token: string | undefined;
-  public repositories: any[] = [];
-  public pullRequests: any[] = [];
-  public reviewRequests: any[] = [];
-  public reviews: any[] = [];
 
   setToken(token: string) {
     this.token = token;
   }
 
-  async init() {
+  async load() {
     this.repositories = await this.discoverRepositories();
     this.pullRequests = await this.discoverPullRequests();
     this.reviewRequests = await this.discoverReviewRequests();
@@ -64,10 +62,11 @@ export default class DataClient {
         pullRequests.push(
           ...await this.queryAllPages(`/repos/${repo.fullName}/pulls`, {state: 'all'}).then(prs => prs
             .map(pr => ({
+              title: pr.title,
               repoFullName: repo.fullName,
               repoId: repo.id,
               id: pr.number,
-            }))
+            }) as unknown as PullRequest)
           )
         );
       } catch (e) {
@@ -86,6 +85,7 @@ export default class DataClient {
         ...await this.queryAllPages(`/repos/${pr.repoFullName}/issues/${pr.id}/events`).then(activities => activities
           .filter((activity: any) => activity.event === 'review_requested')
           .map((activity: any) => ({
+            prTitle: pr.title,
             prId: pr.id,
             requestedReviewer: activity.requested_reviewer.login,
             requestedAt: activity.created_at,
