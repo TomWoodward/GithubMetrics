@@ -55,20 +55,29 @@ export default class DataClient extends DataBucket {
   });
 
   discoverPullRequests = cached('pull-requests', async () => {
-    const pullRequests = [];
+    const pullRequests: PullRequest[] = [];
 
     for(const repo of this.repositories) {
       try {
-        pullRequests.push(
-          ...await this.queryAllPages(`/repos/${repo.fullName}/pulls`, {state: 'all'}).then(prs => prs
-            .map(pr => ({
-              title: pr.title,
-              repoFullName: repo.fullName,
-              repoId: repo.id,
-              id: pr.number,
-            }) as unknown as PullRequest)
-          )
-        );
+        const thisRepoPullRequests = await this.queryAllPages(`/repos/${repo.fullName}/pulls`, {state: 'all'});
+
+        for (const pr of thisRepoPullRequests) {
+
+          const commits = await this.queryAllPages(`/repos/${repo.fullName}/pulls/${pr.number}/commits`);
+
+          pullRequests.push({
+            opener: pr.user.login as string,
+            commits: commits.map(commit => ({
+              date: commit.commit.committer.date as string,
+            })),
+            mergedAt: pr.merged_at,
+            createdAt: pr.created_at,
+            title: pr.title,
+            repoFullName: repo.fullName,
+            repoId: repo.id,
+            id: pr.number,
+          });
+        }
       } catch (e) {
         console.error(e);
       }
@@ -116,13 +125,14 @@ export default class DataClient extends DataBucket {
 
   private async queryAllPages(path: string, params: {[key: string]: string} = {}) {
     const results = [];
+    const per_page = 100;
     let page = 1;
     let newPages = [];
 
     do  {
-      newPages = await this.query(path, {...params, page: String(page++)});
+      newPages = await this.query(path, {...params, page: String(page++), per_page: String(per_page)});
       results.push(...newPages);
-    } while (newPages.length > 0);
+    } while (newPages.length === per_page);
 
     return results;
   }

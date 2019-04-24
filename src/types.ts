@@ -4,11 +4,19 @@ export interface Repository {
   id: string;
 }
 
+export interface Commit {
+  date: string;
+}
+
 export interface PullRequest {
+  opener: string;
   title: string;
   repoFullName: string;
   repoId: string;
   id: number;
+  createdAt: string;
+  mergedAt: string | null;
+  commits: Commit[];
 }
 
 export interface ReviewRequest {

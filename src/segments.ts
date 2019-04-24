@@ -27,3 +27,24 @@ export const forRequestedReviewsRequestedBetween = (data: DataBucket, start: Mom
   return result;
 };
 
+export const forMergedPullRequestsOpenedBy = (data: DataBucket, targetOpener: string): DataBucket => {
+  const result = new DataBucket();
+
+  result.pullRequests = data.pullRequests.filter(({opener, mergedAt}) => !!mergedAt && opener === targetOpener);
+  result.repositories = data.repositories.filter(({id}) => !!result.pullRequests.find(({repoId}) => repoId === id));
+  result.reviews = data.reviews.filter(({prId}) => !!result.pullRequests.find(({id}) => prId === id));
+  result.reviewRequests = data.reviewRequests.filter(({prId}) => !!result.pullRequests.find(({id}) => prId === id));
+
+  return result;
+};
+
+export const forPullRequestsOpenedBetween = (data: DataBucket, start: Moment, end: Moment): DataBucket => {
+  const result = new DataBucket();
+
+  result.pullRequests = data.pullRequests.filter(({createdAt}) => moment(createdAt).isBetween(start, end));
+  result.repositories = data.repositories.filter(({id}) => !!result.pullRequests.find(({repoId}) => repoId === id));
+  result.reviews = data.reviews.filter(({prId}) => !!result.pullRequests.find(({id}) => prId === id));
+  result.reviewRequests = data.reviewRequests.filter(({prId}) => !!result.pullRequests.find(({id}) => prId === id));
+
+  return result;
+};

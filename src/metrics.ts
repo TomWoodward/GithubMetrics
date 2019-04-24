@@ -1,4 +1,3 @@
-import {intersection, uniq} from 'lodash/fp';
 import {mean} from 'lodash/fp';
 import { DataBucket } from "./DataBucket";
 import workHours from './workhours';
@@ -7,16 +6,6 @@ import { extendMoment } from 'moment-range';
 import baseMoment from 'moment';
 
 const moment = extendMoment(baseMoment as any);
-
-export const reviewersReviewed = (data: DataBucket) => {
-  const requested = data.reviewRequests.map(({requestedReviewer}) => requestedReviewer);
-  const reviewers = data.reviews.map(({reviewer}) => reviewer);
-
-  return uniq(intersection(
-    requested,
-    reviewers
-  ));
-};
 
 export const timeToReviewRequests = (data: DataBucket) => {
   const dataPoints: number[] = [];
@@ -33,6 +22,20 @@ export const timeToReviewRequests = (data: DataBucket) => {
       const timeToReview = moment.range(moment(request.requestedAt), moment(firstReviewAfterRequest.reviewedAt));
       dataPoints.push(workHours(timeToReview).asMilliseconds());
     }
+  }
+
+  return moment.duration(mean(dataPoints));
+};
+
+export const timeToMergePullRequests = (data: DataBucket) => {
+  const dataPoints: number[] = [];
+
+  for(const pullRequests of data.pullRequests) {
+    if (!pullRequests.mergedAt) {
+      continue;
+    }
+    const timeToMerge = moment.range(moment(pullRequests.commits[0].date), moment(pullRequests.mergedAt));
+    dataPoints.push(workHours(timeToMerge).asMilliseconds());
   }
 
   return moment.duration(mean(dataPoints));
