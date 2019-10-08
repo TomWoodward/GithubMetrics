@@ -17,6 +17,7 @@ import CssBaseline from '@material-ui/core/CssBaseline';
 import { withStyles } from '@material-ui/core/styles';
 import { forRequestedReviewsReviewedBy, forRequestedReviewsRequestedBetween, forMergedPullRequestsOpenedBy, forPullRequestsOpenedBetween } from "./segments";
 import { Theme } from '@material-ui/core/styles/createMuiTheme';
+import Dashboard from './components/Dashboard';
 
 const query = queryString.parse(location.search);
 
@@ -36,10 +37,16 @@ const styles = (theme: Theme) => ({
   },
 });
 
-type State = {token?: string, loaded: boolean};
+type State = {
+  token?: string,
+  loaded: boolean,
+  view?: React.ComponentElement<any, any>
+};
 type Props = {classes: {[key: string]: string}};
 class App extends Component<Props, State> {
-  state: State = {loaded: false};
+  state: State = {
+    loaded: false,
+  };
   private data: DataClient = new DataClient();
 
   componentDidMount() {
@@ -73,17 +80,14 @@ class App extends Component<Props, State> {
     this.data.load().then(() => this.setState({loaded: true}));
   };
 
+  setView = (view: React.ComponentElement<any, any>) => {
+    this.setState({view});
+  };
+
   render() {
     if (this.state.loaded === false) {
       return null;
     }
-
-    const formatHours = (hours: moment.Duration) => {
-      const numHours = Math.round(hours.asHours());
-      return isNaN(numHours) || numHours === 0
-        ? null
-        : `${numHours} hour${numHours > 1 ? 's' : ''}`;
-    };
 
     return <div className={this.props.classes.container}>
       <CssBaseline />
@@ -96,82 +100,7 @@ class App extends Component<Props, State> {
         variant="outlined"
       />)}
 
-      <Paper className={this.props.classes.main}>
-        <Typography variant="h3" gutterBottom>
-          time to respond to review requests
-        </Typography>
-        <Typography variant="caption" gutterBottom>
-          when a review is requested from somebody, how long does it take them to respond?
-          this metric only counts time during work hours monday through friday.
-        </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell></TableCell>
-              <TableCell>past 30 days</TableCell>
-              <TableCell>30 - 60 days</TableCell>
-              <TableCell>60 - 90 days</TableCell>
-              <TableCell>all time</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {reviewersReviewed(this.data).map(reviewer => {
-              const reviewerData = forRequestedReviewsReviewedBy(this.data, reviewer);
-              return <TableRow key={reviewer}>
-                <TableCell>{reviewer}</TableCell>
-                <TableCell>{formatHours(timeToReviewRequests(
-                  forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(30, 'days'), moment())
-                ))}</TableCell>
-                <TableCell>{formatHours(timeToReviewRequests(
-                  forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
-                ))}</TableCell>
-                <TableCell>{formatHours(timeToReviewRequests(
-                  forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
-                ))}</TableCell>
-                <TableCell>{formatHours(timeToReviewRequests(reviewerData))}</TableCell>
-              </TableRow>;
-            })}
-          </TableBody>
-        </Table>
-      </Paper>
-      <Paper className={this.props.classes.main}>
-        <Typography variant="h3" gutterBottom>
-          time to merge pull requests 
-        </Typography>
-        <Typography variant="caption" gutterBottom>
-          when somebody opens a pull request, how long is it between the first commit on the pull request and when it is merged?
-          this metric only counts time during work hours monday through friday.
-        </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell></TableCell>
-              <TableCell>past 30 days</TableCell>
-              <TableCell>30 - 60 days</TableCell>
-              <TableCell>60 - 90 days</TableCell>
-              <TableCell>all time</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {mergedPullRequestOpeners(this.data).map(opener => {
-              const openerData = forMergedPullRequestsOpenedBy(this.data, opener);
-              return <TableRow key={opener}>
-                <TableCell>{opener}</TableCell>
-                <TableCell>{formatHours(timeToMergePullRequests(
-                  forPullRequestsOpenedBetween(openerData, moment().subtract(30, 'days'), moment())
-                ))}</TableCell>
-                <TableCell>{formatHours(timeToMergePullRequests(
-                  forPullRequestsOpenedBetween(openerData, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
-                ))}</TableCell>
-                <TableCell>{formatHours(timeToMergePullRequests(
-                  forPullRequestsOpenedBetween(openerData, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
-                ))}</TableCell>
-                <TableCell>{formatHours(timeToMergePullRequests(openerData))}</TableCell>
-              </TableRow>;
-            })}
-          </TableBody>
-        </Table>
-      </Paper>
+      {this.state.view ? this.state.view : <Dashboard data={this.data} setView={this.setView} />}
     </div>;
   }
 }

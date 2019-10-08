@@ -4,6 +4,7 @@ import workHours from './workhours';
 import 'moment-range';
 import { extendMoment } from 'moment-range';
 import baseMoment from 'moment';
+import { PullRequest } from "./types";
 
 const moment = extendMoment(baseMoment as any);
 
@@ -25,6 +26,11 @@ export const timeToReviewRequests = (data: DataBucket) => {
   }
 
   return moment.duration(mean(dataPoints));
+};
+
+export const timeToMergePullRequest = (pr: PullRequest) => {
+  const timeToMerge = moment.range(moment(pr.commits[0].date), moment(pr.mergedAt));
+  return moment.duration(workHours(timeToMerge).asMilliseconds());
 };
 
 export const timeToMergePullRequests = (data: DataBucket) => {

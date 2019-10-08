@@ -2,6 +2,7 @@
   "name": "github-metrics",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://tomwoodward.github.io/GithubMetrics",
   "dependencies": {
     "@material-ui/core": "^3.9.3",
     "@types/jest": "24.0.11",
@@ -9,6 +10,7 @@
     "@types/query-string": "^6.3.0",
     "@types/react": "16.8.13",
     "@types/react-dom": "16.8.4",
+    "gh-pages": "^2.0.1",
     "lodash": "^4.17.11",
     "moment": "^2.24.0",
     "moment-range": "^4.0.2",
@@ -22,7 +24,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "gh-pages -d build"
   },
   "eslintConfig": {
     "extends": "react-app"
