@@ -92,7 +92,7 @@ export default class DataClient extends DataBucket {
     for (const pr of this.pullRequests) {
       results.push(
         ...await this.queryAllPages(`/repos/${pr.repoFullName}/issues/${pr.id}/events`).then(activities => activities
-          .filter((activity: any) => activity.event === 'review_requested')
+          .filter((activity: any) => activity.event === 'review_requested' && activity.requested_reviewer)
           .map((activity: any) => ({
             prTitle: pr.title,
             prId: pr.id,

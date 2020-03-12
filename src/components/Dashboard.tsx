@@ -80,6 +80,23 @@ const Dashboard: React.FC<Props> = ({classes, data, setView}) => <React.Fragment
         </TableRow>
       </TableHead>
       <TableBody>
+        <TableRow>
+          <TableCell></TableCell>
+          <TableCell>{(() => {
+            const segment = forPullRequestsOpenedBetween(data, moment().subtract(30, 'days'), moment());
+            return <a href="" onClick={(e) => { 
+              e.preventDefault();
+              setView(<PullRequestList data={segment} />); 
+            }}>{formatHours(timeToMergePullRequests(segment))}</a>;
+          })()}</TableCell>
+          <TableCell>{formatHours(timeToMergePullRequests(
+            forPullRequestsOpenedBetween(data, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
+          ))}</TableCell>
+          <TableCell>{formatHours(timeToMergePullRequests(
+            forPullRequestsOpenedBetween(data, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
+          ))}</TableCell>
+          <TableCell>{formatHours(timeToMergePullRequests(data))}</TableCell>
+        </TableRow>
         {mergedPullRequestOpeners(data).map(opener => {
           const openerData = forMergedPullRequestsOpenedBy(data, opener);
           return <TableRow key={opener}>
