@@ -11,7 +11,7 @@
     "@types/react": "16.8.13",
     "@types/react-dom": "16.8.4",
     "gh-pages": "^2.0.1",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "moment": "^2.24.0",
     "moment-range": "^4.0.2",
     "query-string": "^6.4.2",
