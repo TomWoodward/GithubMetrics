@@ -16,7 +16,7 @@ const workHours = [
 export default (range: DateRange): baseMoment.Duration => {
   let total: number = 0;
 
-  for (const day of Array.from(range.by('day'))) {
+  for (const day of Array.from(range.clone().snapTo('day').by('day'))) {
     const {start, end} = workHours[day.day()];
     const startMoment = day.clone().set(start);
     const endMoment = day.clone().set(end);

@@ -8,7 +8,7 @@ const query = queryString.parse(location.search);
 const repoFilter = typeof query.repo === 'string'
     ? `repo:${query.repo}`
     : query.repo instanceof Array
-      ? query.repo.map(repo => `repo:${query.repo}`).join(' ')
+      ? query.repo.map(repo => `repo:${repo}`).join(' ')
       : undefined
   ;
 

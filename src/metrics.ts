@@ -5,22 +5,33 @@ import 'moment-range';
 import { extendMoment } from 'moment-range';
 import baseMoment from 'moment';
 import { PullRequest } from "./types";
+import { reviewRequestForReview, reviewRequestAfterRework } from "./queries";
 
 const moment = extendMoment(baseMoment as any);
 
 export const timeToReviewRequests = (data: DataBucket) => {
   const dataPoints: number[] = [];
 
-  for(const request of data.reviewRequests) {
-    const reviews = data.reviews.filter(review => review.prId === request.prId);
-    const firstReviewAfterRequest = reviews
-      .sort((review: any) => moment(review.reviewedAt).unix())
-      .filter((review: any) => moment(review.reviewedAt).isAfter(request.requestedAt))
-      [0]
-    ;
+  for(const review of data.reviews) {
+    const request = reviewRequestForReview(data, review);
+    
+    if (request) {
+      const timeToReview = moment.range(moment(request.requestedAt), moment(review.reviewedAt));
+      dataPoints.push(workHours(timeToReview).asMilliseconds());
+    }
+  }
 
-    if (firstReviewAfterRequest) {
-      const timeToReview = moment.range(moment(request.requestedAt), moment(firstReviewAfterRequest.reviewedAt));
+  return moment.duration(mean(dataPoints));
+};
+
+export const timeToReworkAfterReview = (data: DataBucket) => {
+  const dataPoints: number[] = [];
+
+  for(const review of data.reviews) {
+    const request = reviewRequestAfterRework(data, review);
+
+    if (request) {
+      const timeToReview = moment.range(moment(review.reviewedAt), moment(request.requestedAt));
       dataPoints.push(workHours(timeToReview).asMilliseconds());
     }
   }

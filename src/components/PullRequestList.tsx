@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from '@material-ui/core/Link';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -22,8 +23,8 @@ const PullRequestList = ({data}: Props) => {
       </TableRow>
     </TableHead>
     <TableBody>
-      {data.pullRequests.map(pr => <TableRow key={pr.id}>
-        <TableCell>{pr.title}</TableCell>
+      {data.pullRequests.map(pr => <TableRow key={`${pr.repoId} ${pr.id}`}>
+        <TableCell><Link href={`https://github.com/${pr.repoFullName}/pull/${pr.id}`}>{pr.title}</Link></TableCell>
         <TableCell>{formatHours(timeToMergePullRequest(pr))}</TableCell>
         <TableCell>{pr.createdAt}</TableCell>
       </TableRow>)}

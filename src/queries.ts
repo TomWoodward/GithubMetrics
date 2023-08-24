@@ -27,6 +27,28 @@ export const reviewRequestForReview = (data: DataBucket, targetReview: Review): 
     [0];
 };
 
+export const reviewRequestAfterRework = (data: DataBucket, subjectReview: Review): ReviewRequest | undefined => {
+  const nextReview = data.reviews
+    .filter(review =>
+      review.prId === subjectReview.prId
+      && review.reviewer === subjectReview.reviewer
+      && moment(review.reviewedAt).isAfter(subjectReview.reviewedAt)
+    )
+    .sort((review: any) => moment(review.reviewedAt).unix())
+    [0]
+  ;
+
+  return data.reviewRequests
+    .filter(request =>
+      request.prId === subjectReview.prId
+      && request.requestedReviewer === subjectReview.reviewer
+      && moment(request.requestedAt).isAfter(subjectReview.reviewedAt)
+      && (!nextReview || moment(request.requestedAt).isBefore(nextReview.reviewedAt))
+    )
+    .sort((review: any) => moment(review.reviewedAt).unix())
+    [0];
+};
+
 export const mergedPullRequestOpeners = (data: DataBucket) =>
   uniq(data.pullRequests
     .filter(({mergedAt}) => !!mergedAt)

@@ -13,7 +13,7 @@ import { forMergedPullRequestsOpenedBy, forPullRequestsOpenedBetween, forRequest
 import { formatHours } from "../timeUtils";
 import { DataBucket } from "../DataBucket";
 import { mergedPullRequestOpeners, reviewersReviewed } from "../queries";
-import { timeToMergePullRequests, timeToReviewRequests } from "../metrics";
+import { timeToMergePullRequests, timeToReviewRequests, timeToReworkAfterReview } from "../metrics";
 import PullRequestList from './PullRequestList';
 import { useStyles } from "../App";
 
@@ -36,7 +36,7 @@ const CellLink = (props: {
     <Link component='button' onClick={(e: any) => { 
       e.preventDefault();
       setView(<props.detail data={props.segment} />); 
-    }}>{props.text(props.segment) || ''}</Link>
+    }}>{props.text(props.segment) || '-'}</Link>
   </TableCell>
 };
 
@@ -137,6 +137,23 @@ const Dashboard = ({data, setView}: Props) => {
         rowFilter={forRequestedReviewsReviewedBy}
         dateFilter={forRequestedReviewsRequestedBetween}
         text={segment => formatHours(timeToReviewRequests(segment))}
+      />
+    </Paper>
+    <Paper className={classes.main}>
+      <Typography variant="h3" gutterBottom>
+        time to rework after review
+      </Typography>
+      <Typography variant="caption" gutterBottom>
+        how long does it take the PR owner to re-work and re-request review after receiving feedback? 
+        this metric only counts time during work hours monday through friday.
+      </Typography>
+      <DateBucketTable
+        segment={data}
+        detail={PullRequestList}
+        rows={mergedPullRequestOpeners}
+        rowFilter={forMergedPullRequestsOpenedBy}
+        dateFilter={forRequestedReviewsRequestedBetween}
+        text={segment => formatHours(timeToReworkAfterReview(segment))}
       />
     </Paper>
     <Paper className={classes.main}>

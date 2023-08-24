@@ -1,10 +1,13 @@
 import moment from 'moment';
 
 export const formatHours = (hours: moment.Duration) => {
-  const numHours = Math.round(hours.asHours());
-  return isNaN(numHours) || numHours === 0
+  const numMinutes = hours.asMinutes();
+  const minutesInADay = 8 * 60
+  return isNaN(numMinutes)
     ? null
-    : numHours >= 8
-      ? `${numHours/8} day${numHours === 8 ? '' : 's'}`
-      : `${numHours} hour${numHours > 1 ? 's' : ''}`;
+    : numMinutes >= minutesInADay
+      ? `${(numMinutes/minutesInADay).toLocaleString()} days`
+      : numMinutes > 60
+        ? `${(numMinutes/60).toLocaleString()} hours`
+        : `${numMinutes.toLocaleString()} minutes`;
 };

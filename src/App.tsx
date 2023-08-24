@@ -65,7 +65,7 @@ const App = () => {
       getAccessToken(query.code)
     } else {
       const redirect = REDIRECT_URI + window.location.search;
-      window.location.replace(`https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=user,repo&redirect_uri=${redirect}`);
+      window.location.replace(`https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=user,read,repo&redirect_uri=${redirect}`);
     }
   }, [receiveToken, getAccessToken]);
 
