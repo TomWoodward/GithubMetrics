@@ -1,9 +1,9 @@
 import Paper from '@material-ui/core/Paper';
-import { withStyles } from '@material-ui/core/styles';
-import { Theme } from '@material-ui/core/styles/createMuiTheme';
-import moment from 'moment';
+import moment, {Moment} from 'moment';
 import Typography from "@material-ui/core/Typography";
 import React from 'react';
+import Link from '@material-ui/core/Link';
+import Button from '@material-ui/core/Button';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -15,121 +15,148 @@ import { DataBucket } from "../DataBucket";
 import { mergedPullRequestOpeners, reviewersReviewed } from "../queries";
 import { timeToMergePullRequests, timeToReviewRequests } from "../metrics";
 import PullRequestList from './PullRequestList';
+import { useStyles } from "../App";
 
 type Props = {
-  classes: {[key: string]: string};
   setView: (view: React.ComponentElement<any, any>) => void;
   data: DataBucket;
 };
 
-const Dashboard: React.FC<Props> = ({classes, data, setView}) => <React.Fragment>
-  <Paper className={classes.main}>
-    <Typography variant="h3" gutterBottom>
-      time to respond to review requests
-    </Typography>
-    <Typography variant="caption" gutterBottom>
-      when a review is requested from somebody, how long does it take them to respond?
-      this metric only counts time during work hours monday through friday.
-    </Typography>
-    <Table>
-      <TableHead>
-        <TableRow>
-          <TableCell></TableCell>
-          <TableCell>past 30 days</TableCell>
-          <TableCell>30 - 60 days</TableCell>
-          <TableCell>60 - 90 days</TableCell>
-          <TableCell>all time</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {reviewersReviewed(data).map(reviewer => {
-          const reviewerData = forRequestedReviewsReviewedBy(data, reviewer);
-          return <TableRow key={reviewer}>
-            <TableCell>{reviewer}</TableCell>
-            <TableCell>{formatHours(timeToReviewRequests(
-              forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(30, 'days'), moment())
-            ))}</TableCell>
-            <TableCell>{formatHours(timeToReviewRequests(
-              forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
-            ))}</TableCell>
-            <TableCell>{formatHours(timeToReviewRequests(
-              forRequestedReviewsRequestedBetween(reviewerData, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
-            ))}</TableCell>
-            <TableCell>{formatHours(timeToReviewRequests(reviewerData))}</TableCell>
-          </TableRow>;
-        })}
-      </TableBody>
-    </Table>
-  </Paper>
-  <Paper className={classes.main}>
-    <Typography variant="h3" gutterBottom>
-      time to merge pull requests
-    </Typography>
-    <Typography variant="caption" gutterBottom>
-      when somebody opens a pull request, how long is it between the first commit on the pull request and when it is merged?
-      this metric only counts time during work hours monday through friday.
-    </Typography>
-    <Table>
-      <TableHead>
-        <TableRow>
-          <TableCell></TableCell>
-          <TableCell>past 30 days</TableCell>
-          <TableCell>30 - 60 days</TableCell>
-          <TableCell>60 - 90 days</TableCell>
-          <TableCell>all time</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        <TableRow>
-          <TableCell></TableCell>
-          <TableCell>{(() => {
-            const segment = forPullRequestsOpenedBetween(data, moment().subtract(30, 'days'), moment());
-            return <a href="" onClick={(e) => { 
-              e.preventDefault();
-              setView(<PullRequestList data={segment} />); 
-            }}>{formatHours(timeToMergePullRequests(segment))}</a>;
-          })()}</TableCell>
-          <TableCell>{formatHours(timeToMergePullRequests(
-            forPullRequestsOpenedBetween(data, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
-          ))}</TableCell>
-          <TableCell>{formatHours(timeToMergePullRequests(
-            forPullRequestsOpenedBetween(data, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
-          ))}</TableCell>
-          <TableCell>{formatHours(timeToMergePullRequests(data))}</TableCell>
-        </TableRow>
-        {mergedPullRequestOpeners(data).map(opener => {
-          const openerData = forMergedPullRequestsOpenedBy(data, opener);
-          return <TableRow key={opener}>
-            <TableCell><a href="" onClick={e => {
-              e.preventDefault();
-              setView(<PullRequestList data={openerData} />); 
-            }}>{opener}</a></TableCell>
-            <TableCell>{(() => {
-              const segment = forPullRequestsOpenedBetween(openerData, moment().subtract(30, 'days'), moment());
-              return <a href="" onClick={(e) => { 
-                e.preventDefault();
-                setView(<PullRequestList data={segment} />); 
-              }}>{formatHours(timeToMergePullRequests(segment))}</a>;
-            })()}</TableCell>
-            <TableCell>{formatHours(timeToMergePullRequests(
-              forPullRequestsOpenedBetween(openerData, moment().subtract(60, 'days'), moment().subtract(30, 'days'))
-            ))}</TableCell>
-            <TableCell>{formatHours(timeToMergePullRequests(
-              forPullRequestsOpenedBetween(openerData, moment().subtract(90, 'days'), moment().subtract(60, 'days'))
-            ))}</TableCell>
-            <TableCell>{formatHours(timeToMergePullRequests(openerData))}</TableCell>
-          </TableRow>;
-        })}
-      </TableBody>
-    </Table>
-  </Paper>
-</React.Fragment>;
+export const SetDetailContext = React.createContext<(view: React.ComponentElement<any, any>) => void>(() => { throw new Error('not implemented') })
+export const useSetView = () => React.useContext(SetDetailContext);
 
-const styles = (theme: Theme) => ({
-  main: {
-    marginTop: theme.spacing.unit * 4,
-    padding: theme.spacing.unit * 4,
-  },
-});
+const CellLink = (props: {
+  segment: DataBucket;
+  detail: React.ComponentType<any>;
+  text: (segment: DataBucket) => string | null; 
+}) => {
+  const setView = useSetView();
 
-export default withStyles(styles)(Dashboard);
+  return <TableCell>
+    <Link component='button' onClick={(e: any) => { 
+      e.preventDefault();
+      setView(<props.detail data={props.segment} />); 
+    }}>{props.text(props.segment) || ''}</Link>
+  </TableCell>
+};
+
+const DateBucketRow = (props: {
+  rowHeader: string;
+  segment: DataBucket;
+  detail: React.ComponentType<any>;
+  filter: (segment: DataBucket, start: Moment, end: Moment) => DataBucket;
+  text: (segment: DataBucket) => string | null; 
+}) => { 
+  return <TableRow>
+    <CellLink
+      segment={props.segment}
+      detail={props.detail}
+      text={() => props.rowHeader}
+    />
+    <CellLink
+      segment={props.filter(props.segment, moment().subtract(30, 'days'), moment())}
+      detail={props.detail}
+      text={props.text}
+    />
+    <CellLink
+      segment={props.filter(props.segment, moment().subtract(60, 'days'), moment().subtract(30, 'days'))}
+      detail={props.detail}
+      text={props.text}
+    />
+    <CellLink
+      segment={props.filter(props.segment, moment().subtract(90, 'days'), moment().subtract(60, 'days'))}
+      detail={props.detail}
+      text={props.text}
+    />
+  </TableRow>;
+}
+      
+const DateBucketTable = (props: {
+  rows: (segment: DataBucket) => string[];
+  segment: DataBucket;
+  detail: React.ComponentType<any>;
+  dateFilter: (segment: DataBucket, start: Moment, end: Moment) => DataBucket;
+  rowFilter: (segment: DataBucket, row: string) => DataBucket;
+  text: (segment: DataBucket) => string | null; 
+}) => {
+  const [detail, setDetail] = React.useState<React.ComponentElement<any, any> | undefined>();
+
+  return <SetDetailContext.Provider value={setDetail}>
+    {detail
+      ? <>
+        {detail}
+        <Button onClick={() => setDetail(undefined)}>back</Button>
+      </>
+      : <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell></TableCell>
+            <TableCell>past 30 days</TableCell>
+            <TableCell>30 - 60 days</TableCell>
+            <TableCell>60 - 90 days</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          <DateBucketRow
+            rowHeader={''}
+            segment={props.segment}
+            detail={props.detail}
+            filter={props.dateFilter}
+            text={props.text}
+          />
+          {props.rows(props.segment).map(row => 
+            <DateBucketRow key={row}
+              rowHeader={row}
+              segment={props.rowFilter(props.segment, row)}
+              detail={props.detail}
+              filter={props.dateFilter}
+              text={props.text}
+            />
+          )}
+        </TableBody>
+      </Table>}
+  </SetDetailContext.Provider>;
+}
+
+const Dashboard = ({data, setView}: Props) => {
+  const classes = useStyles();
+
+  return <React.Fragment>
+    <Paper className={classes.main}>
+      <Typography variant="h3" gutterBottom>
+        time to respond to review requests
+      </Typography>
+      <Typography variant="caption" gutterBottom>
+        when a review is requested from somebody, how long does it take them to respond?
+        this metric only counts time during work hours monday through friday.
+      </Typography>
+      <DateBucketTable
+        segment={data}
+        detail={PullRequestList}
+        rows={reviewersReviewed}
+        rowFilter={forRequestedReviewsReviewedBy}
+        dateFilter={forRequestedReviewsRequestedBetween}
+        text={segment => formatHours(timeToReviewRequests(segment))}
+      />
+    </Paper>
+    <Paper className={classes.main}>
+      <Typography variant="h3" gutterBottom>
+        time to merge pull requests
+      </Typography>
+      <Typography variant="caption" gutterBottom>
+        when somebody opens a pull request, how long is it between the first commit on the pull request and when it is merged?
+        this metric only counts time during work hours monday through friday.
+      </Typography>
+      <DateBucketTable
+        segment={data}
+        detail={PullRequestList}
+        rows={mergedPullRequestOpeners}
+        rowFilter={forMergedPullRequestsOpenedBy}
+        dateFilter={forPullRequestsOpenedBetween}
+        text={segment => formatHours(timeToMergePullRequests(segment))}
+      />
+    </Paper>
+  </React.Fragment>
+};
+
+export default Dashboard;

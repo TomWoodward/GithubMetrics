@@ -1,10 +1,16 @@
 import queryString from 'query-string';
+import moment, { Moment } from "moment";
 import { DataBucket } from "./DataBucket";
 import { PullRequest } from "./types";
 
 const query = queryString.parse(location.search);
 
-const repoFilter = typeof(query.repo) === 'string' ? query.repo : null;
+const repoFilter = typeof query.repo === 'string'
+    ? `repo:${query.repo}`
+    : query.repo instanceof Array
+      ? query.repo.map(repo => `repo:${query.repo}`).join(' ')
+      : undefined
+  ;
 
 const cached = <T extends Array<any>>(key: string, implementation: () => Promise<T>) => async () => {
   const cacheKey = `cache:${key}${repoFilter ? `?repo=${repoFilter}` : ''}`;
@@ -37,19 +43,17 @@ export default class DataClient extends DataBucket {
     this.reviewRequests = await this.discoverReviewRequests();
     this.reviews = await this.discoverReviews();
   }
-
+    
   discoverRepositories = cached('repositories', () => {
-    const orgFilter = query.org;
-    const repoFilter = query.repo;
-
     const formatRepo = (repo: any) => ({
       fullName: repo.full_name,
       id: repo.id,
     });
 
     if (repoFilter) {
-      return  this.query(`/repos/${repoFilter}`).then(repo => ([formatRepo(repo)]));
+      return  this.query(`/search/repositories?q=${repoFilter}`).then(({items}) => items.map(formatRepo));
     } else {
+      alert('please specify a `?repo=openstax/rex-web` query param. you can specify the param multiple times to load more than one repo');
       throw new Error('please don\'t make me load everything....');
     }
   });
@@ -57,27 +61,26 @@ export default class DataClient extends DataBucket {
   discoverPullRequests = cached('pull-requests', async () => {
     const pullRequests: PullRequest[] = [];
 
-    for(const repo of this.repositories) {
+    const q = `is:pr ${repoFilter} merged:>=${moment().subtract(90, 'days').format('YYYY-MM-DD')}`
+    const pullRequestsData = await this.queryAllPages(`/search/issues`, {q});
+
+    for (const pr of pullRequestsData) {
       try {
-        const thisRepoPullRequests = await this.queryAllPages(`/repos/${repo.fullName}/pulls`, {state: 'all'});
+        const repoFullName = pr.repository_url.replace(/.*\.com\/repos\//, '');
+        const commits = await this.queryAllPages(`/repos/${repoFullName}/pulls/${pr.number}/commits`);
 
-        for (const pr of thisRepoPullRequests) {
-
-          const commits = await this.queryAllPages(`/repos/${repo.fullName}/pulls/${pr.number}/commits`);
-
-          pullRequests.push({
-            opener: pr.user.login as string,
-            commits: commits.map(commit => ({
-              date: commit.commit.committer.date as string,
-            })),
-            mergedAt: pr.merged_at,
-            createdAt: pr.created_at,
-            title: pr.title,
-            repoFullName: repo.fullName,
-            repoId: repo.id,
-            id: pr.number,
-          });
-        }
+        pullRequests.push({
+          opener: pr.user.login as string,
+          commits: commits.map(commit => ({
+            date: commit.commit.committer.date as string,
+          })),
+          mergedAt: pr.pull_request.merged_at,
+          createdAt: pr.created_at,
+          title: pr.title,
+          repoFullName,
+          repoId: this.repositories.find(r => r.fullName == repoFullName)!.id,
+          id: pr.number,
+        });
       } catch (e) {
         console.error(e);
       }
@@ -130,7 +133,8 @@ export default class DataClient extends DataBucket {
     let newPages = [];
 
     do  {
-      newPages = await this.query(path, {...params, page: String(page++), per_page: String(per_page)});
+      const response = await this.query(path, {...params, page: String(page++), per_page: String(per_page)});
+      newPages = 'items' in response ? response.items : response;
       results.push(...newPages);
     } while (newPages.length === per_page);
 
