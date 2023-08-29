@@ -6,6 +6,7 @@ import Typography from "@material-ui/core/Typography";
 import CssBaseline from '@material-ui/core/CssBaseline';
 import { Theme, ThemeProvider, createTheme, makeStyles } from '@material-ui/core/styles';
 import Dashboard from './components/Dashboard';
+import { RepoSelector } from "./components/RepoSelector";
 
 const query = queryString.parse(window.location.search);
 
@@ -32,21 +33,32 @@ export const useStyles = makeStyles((theme: Theme) => ({
 
 type State = {
   token?: string,
-  loaded: boolean,
+  phase: 'repo-select' | 'loading' | 'loaded' | null,
   view?: React.ComponentElement<any, any>
 };
 const App = () => {
-  const [state, setState] = React.useState<State>({loaded: false});
+  const [state, setState] = React.useState<State>({phase: null});
+  const [progress, setProgress] = React.useState<string>('');
   const data = React.useRef(new DataClient());
   const classes = useStyles();
- 
+
+  const loadData = React.useCallback(() => {
+    setProgress('');
+    data.current.load(
+      progress => setProgress(previous => previous + '\n' + progress)
+    ).then(() => setState(previous => ({...previous, phase: 'loaded'})));
+  }, [setState]);
+
   const receiveToken = React.useCallback((token: string) => {
     localStorage.setItem('token', token);
-    setState(previous => ({...previous, token}));
+    setState(previous => ({...previous, token, phase: data.current.needsReposSelected() ? 'repo-select' : 'loading'}));
 
     data.current.setToken(token);
-    data.current.load().then(() => setState(previous => ({...previous, loaded: true})));
-  }, [setState]);
+
+    if (!data.current.needsReposSelected()) {
+      loadData();
+    }
+  }, [setState, loadData]);
 
   const getAccessToken = React.useCallback((code: string) => {
     fetch(`${ACCESS_TOKEN_HOST}/authenticate/${code}`)
@@ -71,8 +83,16 @@ const App = () => {
     }
   }, [receiveToken, getAccessToken]);
 
-  if (state.loaded === false) {
-    return null;
+  React.useEffect(() => {
+    if (state.phase === 'loading') {
+      if ((window.innerHeight + window.pageYOffset) >= document.body.offsetHeight - 30) {
+        window.scrollTo(0, document.body.offsetHeight)
+      }
+    }
+  }, [state, progress]);
+
+  if (state.phase === 'loading') {
+    return <pre>{progress}{'\n...'}</pre>;
   }
 
   return <div className={classes.container}>
@@ -87,7 +107,12 @@ const App = () => {
       variant="outlined"
     />)}
 
-    {state.view ? state.view : <Dashboard data={data.current} setView={setView} />}
+    {state.phase === 'loaded'
+      ? <Dashboard data={data.current} />
+      : state.phase === 'repo-select'
+        ? <RepoSelector data={data.current} />
+        : null
+    }
   </div>;
 }
 

@@ -1,7 +1,7 @@
 import queryString from 'query-string';
 import moment, { Moment } from "moment";
 import { DataBucket } from "./DataBucket";
-import { PullRequest } from "./types";
+import { PullRequest, Repository } from "./types";
 
 const query = queryString.parse(location.search);
 
@@ -17,17 +17,17 @@ const repoFilter = repos instanceof Array
   : undefined
 ;
 
-const cached = <T extends Array<any>>(key: string, implementation: () => Promise<T>) => async () => {
+const cached = <A extends any[], R>(key: string, implementation: (...args: A) => Promise<R[]>) => async (...args: A) => {
   const cacheKey = `cache:${key}${repoFilter ? `?repo=${repoFilter}` : ''}`;
   const cached = localStorage.getItem(cacheKey);
-  let result: T;
+  let result: R[];
 
   if (cached) {
     result = JSON.parse(cached || '') || [];
     console.log(`loaded ${key}: ${result.length}`);
     return result;
   } else {
-    result = await implementation();
+    result = await implementation(...args);
     localStorage.setItem(cacheKey, JSON.stringify(result));
     console.log(`discovered ${key}: ${result.length}`);
   }
@@ -46,34 +46,59 @@ export default class DataClient extends DataBucket {
     super();
   }
 
-  async load() {
-    this.repositories = await this.discoverRepositories();
-    this.pullRequests = await this.discoverPullRequests();
-    this.reviewRequests = await this.discoverReviewRequests();
-    this.reviews = await this.discoverReviews();
+  async load(setProgress: (progress: string) => void) {
+    this.repositories = await this.discoverRepositories(setProgress);
+    this.pullRequests = await this.discoverPullRequests(setProgress);
+    this.reviewRequests = await this.discoverReviewRequests(setProgress);
+    this.reviews = await this.discoverReviews(setProgress);
   }
+ 
+  needsReposSelected = () => !repos || repos.length < 1;
+
+  userOrgs = async () => {
+    const formatOrg = (org: any) => ({
+      name: org.login,
+      id: org.id,
+    });
+
+    return this.queryAllPages(`/user/orgs`).then(items => items.map(formatOrg));
+  };
+  possibleRepositories = async (org: string): Promise<Repository[]> => {
+    const formatRepo = (repo: any) => ({
+      fullName: repo.full_name,
+      id: repo.id,
+    });
+
+    return this.queryAllPages(`/orgs/${org}/repos`).then(items => items.map(formatRepo));
+  };
     
-  discoverRepositories = cached('repositories', () => {
+  discoverRepositories = cached('repositories', async (setProgress: (progress: string) => void): Promise<Repository[]> => {
     const formatRepo = (repo: any) => ({
       fullName: repo.full_name,
       id: repo.id,
     });
 
     if (repoFilter) {
-      return  this.query(`/search/repositories?q=${repoFilter}`).then(({items}) => items.map(formatRepo));
+      setProgress(`querying repositories...`)
+      const repos = await this.query(`/search/repositories?q=${repoFilter}`).then(({items}) => items.map(formatRepo));
+      setProgress(`found repositories: \n -${repos.map((r: any) => r.fullName).join('\n -')}`)
+
+      return repos;
     } else {
       alert('please specify a `?repo=openstax/rex-web` query param. you can specify the param multiple times to load more than one repo');
       throw new Error('please don\'t make me load everything....');
     }
   });
 
-  discoverPullRequests = cached('pull-requests', async () => {
+  discoverPullRequests = cached('pull-requests', async (setProgress: (progress: string) => void) => {
     const pullRequests: PullRequest[] = [];
 
     // "updated" is not helpful because we have scripts that re-label very old issues, so select on merged and
     // then separately all open prs (because i don't think logical or is supported in github search
     const mergedPrs = `is:pr ${repoFilter} merged:>=${moment().subtract(90, 'days').format('YYYY-MM-DD')}`
     const openPrs = `is:pr is:open ${repoFilter}`
+      
+    setProgress(`querying prs with\n  merged prs: ${mergedPrs}\n  open prs: ${openPrs}\nloading...`)
     const pullRequestsData = [
       ...await this.queryAllPages(`/search/issues`, {q: mergedPrs}),
       ...await this.queryAllPages(`/search/issues`, {q: openPrs})
@@ -81,12 +106,15 @@ export default class DataClient extends DataBucket {
 
     for (const pr of pullRequestsData) {
       try {
+        const repoFullName = pr.repository_url.replace(/.*\.com\/repos\//, '');
+
         if (pr.labels.find(({name}: any) => name === 'release')) {
-          console.info(`skipping pr ${pr.number} because its labeled as a release`)
+          setProgress(`  skipping pr ${repoFullName}#${pr.number} because its labeled as a release`)
           continue;
         }
+          
+        setProgress(`  loading commits for pr ${repoFullName}#${pr.number}...`)
 
-        const repoFullName = pr.repository_url.replace(/.*\.com\/repos\//, '');
         const commits = await this.queryAllPages(`/repos/${repoFullName}/pulls/${pr.number}/commits`);
 
         pullRequests.push({
@@ -103,16 +131,19 @@ export default class DataClient extends DataBucket {
         });
       } catch (e) {
         console.error(e);
+        setProgress(`[ERROR]: ${e.message}`)
       }
     }
 
+    setProgress(`found ${pullRequests.length} pull requests`)
     return pullRequests;
   });
 
-  discoverReviewRequests = cached('review-requests', async () => {
+  discoverReviewRequests = cached('review-requests', async (setProgress: (progress: string) => void) => {
     const results = [];
 
     for (const pr of this.pullRequests) {
+      setProgress(`  loading review requests for pr ${pr.repoFullName}#${pr.id}...`)
       results.push(
         ...await this.queryAllPages(`/repos/${pr.repoFullName}/issues/${pr.id}/events`).then(activities => activities
           .filter((activity: any) => activity.event === 'review_requested' && activity.requested_reviewer)
@@ -125,14 +156,17 @@ export default class DataClient extends DataBucket {
           })))
       );
     }
+    
+    setProgress(`found ${results.length} review requests`)
 
     return results;
   });
 
-  discoverReviews = cached('reviews', async () => {
+  discoverReviews = cached('reviews', async (setProgress: (progress: string) => void) => {
     const results = [];
 
     for (const pr of this.pullRequests) {
+      setProgress(`  loading reviews for pr ${pr.repoFullName}#${pr.id}...`)
       results.push(
         ...await this.queryAllPages(`/repos/${pr.repoFullName}/pulls/${pr.id}/reviews`).then(reviews => reviews
           .map((review: any) => ({
@@ -144,6 +178,8 @@ export default class DataClient extends DataBucket {
           })))
       );
     }
+    
+    setProgress(`found ${results.length} reviews`)
 
     return results;
   });

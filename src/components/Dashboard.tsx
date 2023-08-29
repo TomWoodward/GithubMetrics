@@ -18,7 +18,6 @@ import { useStyles } from "../App";
 import { DayList } from "./DayList";
 
 type Props = {
-  setView: (view: React.ComponentElement<any, any>) => void;
   data: DataBucket;
 };
 
@@ -119,7 +118,7 @@ const DateBucketTable = (props: {
   </SetDetailContext.Provider>;
 }
 
-const Dashboard = ({data, setView}: Props) => {
+const Dashboard = ({data}: Props) => {
   const classes = useStyles();
 
   return <React.Fragment>
