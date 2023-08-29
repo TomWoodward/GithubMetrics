@@ -4,7 +4,7 @@ import moment, { Moment } from "moment";
 import { Review, ReviewRequest } from "./types";
 
 export const reviewRequestForReview = (data: DataBucket, targetReview: Review): ReviewRequest | undefined => {
-  const previousReview = data.reviews
+  const previousReview = data.root.reviews
     .filter(review =>
       review.prId === targetReview.prId
       && review.reviewer === targetReview.reviewer
@@ -15,7 +15,7 @@ export const reviewRequestForReview = (data: DataBucket, targetReview: Review): 
     [0]
   ;
 
-  return data.reviewRequests
+  return data.root.reviewRequests
     .filter(request =>
       request.prId === targetReview.prId
       && request.requestedReviewer === targetReview.reviewer
@@ -28,17 +28,9 @@ export const reviewRequestForReview = (data: DataBucket, targetReview: Review): 
 };
 
 export const reviewRequestAfterRework = (data: DataBucket, subjectReview: Review): ReviewRequest | undefined => {
-  const nextReview = data.reviews
-    .filter(review =>
-      review.prId === subjectReview.prId
-      && review.reviewer === subjectReview.reviewer
-      && moment(review.reviewedAt).isAfter(subjectReview.reviewedAt)
-    )
-    .sort((review: any) => moment(review.reviewedAt).unix())
-    [0]
-  ;
+  const nextReview = reviewAfterRework(data, subjectReview); 
 
-  return data.reviewRequests
+  return data.root.reviewRequests
     .filter(request =>
       request.prId === subjectReview.prId
       && request.requestedReviewer === subjectReview.reviewer
@@ -47,6 +39,18 @@ export const reviewRequestAfterRework = (data: DataBucket, subjectReview: Review
     )
     .sort((review: any) => moment(review.reviewedAt).unix())
     [0];
+};
+
+export const reviewAfterRework = (data: DataBucket, subjectReview: Review): Review | undefined => {
+  return data.root.reviews
+    .filter(review =>
+      review.prId === subjectReview.prId
+      && review.reviewer === subjectReview.reviewer
+      && moment(review.reviewedAt).isAfter(subjectReview.reviewedAt)
+    )
+    .sort((review: any) => moment(review.reviewedAt).unix())
+    [0]
+  ;
 };
 
 export const mergedPullRequestOpeners = (data: DataBucket) =>
@@ -65,3 +69,20 @@ export const reviewersReviewed = (data: DataBucket) => {
     reviewers
   ));
 };
+
+export const commitsOnDay = (data: DataBucket, day: Moment) => {
+  const commitDates = data.pullRequests
+    .flatMap(({commits}) => commits.map(commit => moment(commit.date)))
+
+  return commitDates.filter(date => {
+    return day.isSame(date, 'day')
+  }).length
+}
+
+export const inProgressPrsOnDay = (data: DataBucket, day: Moment) => {
+  return data.pullRequests.filter(
+    pr => pr.mergedAt
+      ? day.isBetween(moment(pr.commits[0].date).startOf('day'), moment(pr.mergedAt).endOf('day'))
+      : day.isAfter(moment(pr.commits[0].date).startOf('day'))
+  )
+}

@@ -18,6 +18,9 @@ const {
 } = process.env;
 
 export const useStyles = makeStyles((theme: Theme) => ({
+  repoChip: {
+    margin: theme.spacing(1/4),
+  },
   container: {
     margin: theme.spacing(2),
   },
@@ -36,12 +39,11 @@ const App = () => {
   const [state, setState] = React.useState<State>({loaded: false});
   const data = React.useRef(new DataClient());
   const classes = useStyles();
-  
+ 
   const receiveToken = React.useCallback((token: string) => {
     localStorage.setItem('token', token);
     setState(previous => ({...previous, token}));
 
-    console.log('asdf');
     data.current.setToken(token);
     data.current.load().then(() => setState(previous => ({...previous, loaded: true})));
   }, [setState]);
@@ -64,7 +66,7 @@ const App = () => {
     } else if (query.code && typeof(query.code) === 'string') {
       getAccessToken(query.code)
     } else {
-      const redirect = REDIRECT_URI + window.location.search;
+      const redirect = encodeURIComponent(REDIRECT_URI + window.location.search);
       window.location.replace(`https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=user,read,repo&redirect_uri=${redirect}`);
     }
   }, [receiveToken, getAccessToken]);
@@ -79,6 +81,7 @@ const App = () => {
       GitHub Metrics
     </Typography>
     {data.current.repositories.map(({fullName}) => <Chip
+      className={classes.repoChip} 
       key={fullName}
       label={fullName}
       variant="outlined"

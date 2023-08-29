@@ -5,12 +5,17 @@ import { PullRequest } from "./types";
 
 const query = queryString.parse(location.search);
 
-const repoFilter = typeof query.repo === 'string'
-    ? `repo:${query.repo}`
-    : query.repo instanceof Array
-      ? query.repo.map(repo => `repo:${repo}`).join(' ')
-      : undefined
-  ;
+const repos = typeof query.repo === 'string'
+  ? [query.repo]
+  : query.repo instanceof Array
+    ? query.repo
+    : undefined
+;
+
+const repoFilter = repos instanceof Array
+  ? repos.map(repo => `repo:${repo}`).join(' ')
+  : undefined
+;
 
 const cached = <T extends Array<any>>(key: string, implementation: () => Promise<T>) => async () => {
   const cacheKey = `cache:${key}${repoFilter ? `?repo=${repoFilter}` : ''}`;
@@ -37,6 +42,10 @@ export default class DataClient extends DataBucket {
     this.token = token;
   }
 
+  constructor() {
+    super();
+  }
+
   async load() {
     this.repositories = await this.discoverRepositories();
     this.pullRequests = await this.discoverPullRequests();
@@ -61,11 +70,22 @@ export default class DataClient extends DataBucket {
   discoverPullRequests = cached('pull-requests', async () => {
     const pullRequests: PullRequest[] = [];
 
-    const q = `is:pr ${repoFilter} merged:>=${moment().subtract(90, 'days').format('YYYY-MM-DD')}`
-    const pullRequestsData = await this.queryAllPages(`/search/issues`, {q});
+    // "updated" is not helpful because we have scripts that re-label very old issues, so select on merged and
+    // then separately all open prs (because i don't think logical or is supported in github search
+    const mergedPrs = `is:pr ${repoFilter} merged:>=${moment().subtract(90, 'days').format('YYYY-MM-DD')}`
+    const openPrs = `is:pr is:open ${repoFilter}`
+    const pullRequestsData = [
+      ...await this.queryAllPages(`/search/issues`, {q: mergedPrs}),
+      ...await this.queryAllPages(`/search/issues`, {q: openPrs})
+    ];
 
     for (const pr of pullRequestsData) {
       try {
+        if (pr.labels.find(({name}: any) => name === 'release')) {
+          console.info(`skipping pr ${pr.number} because its labeled as a release`)
+          continue;
+        }
+
         const repoFullName = pr.repository_url.replace(/.*\.com\/repos\//, '');
         const commits = await this.queryAllPages(`/repos/${repoFullName}/pulls/${pr.number}/commits`);
 
@@ -97,6 +117,7 @@ export default class DataClient extends DataBucket {
         ...await this.queryAllPages(`/repos/${pr.repoFullName}/issues/${pr.id}/events`).then(activities => activities
           .filter((activity: any) => activity.event === 'review_requested' && activity.requested_reviewer)
           .map((activity: any) => ({
+            repoFullName: pr.repoFullName,
             prTitle: pr.title,
             prId: pr.id,
             requestedReviewer: activity.requested_reviewer.login,
@@ -115,6 +136,7 @@ export default class DataClient extends DataBucket {
       results.push(
         ...await this.queryAllPages(`/repos/${pr.repoFullName}/pulls/${pr.id}/reviews`).then(reviews => reviews
           .map((review: any) => ({
+            repoFullName: pr.repoFullName,
             prId: pr.id,
             reviewer: review.user.login,
             reviewedAt: review.submitted_at,

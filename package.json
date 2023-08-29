@@ -4,7 +4,11 @@
   "private": true,
   "homepage": "https://tomwoodward.github.io/GithubMetrics",
   "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
     "@material-ui/core": "^4.12.4",
+    "@mui/icons-material": "^5.14.6",
+    "@mui/material": "^5.14.6",
     "@types/jest": "24.0.11",
     "@types/node": "11.13.5",
     "@types/query-string": "^6.3.0",
@@ -16,7 +20,7 @@
     "moment-range": "^4.0.2",
     "query-string": "^6.4.2",
     "react": "^18.2.0",
-    "react-dom": "^16.8.6",
+    "react-dom": "^18.2.0",
     "react-scripts": "2.1.8",
     "typescript": "^5.1.6"
   },

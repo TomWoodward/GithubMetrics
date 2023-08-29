@@ -22,12 +22,14 @@ export interface PullRequest {
 export interface ReviewRequest {
   prId: number;
   prTitle: string;
+  repoFullName: string;
   requestedReviewer: string;
   requestedAt: string;
 }
 
 export interface Review {
   prId: number;
+  repoFullName: string;
   reviewer: string; 
   reviewedAt: string; 
   state: string; // todo make this an emum
