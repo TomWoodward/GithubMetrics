@@ -8,11 +8,11 @@ import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
-import { forMergedPullRequestsOpenedBy, forPullRequestsOpenedBetween, forRequestedReviewsReviewedBy, forRequestedReviewsRequestedBetween, forPullRequestsOpenedBy } from "../segments";
+import { forMergedPullRequestsOpenedBy, forPullRequestsOpenedBetween, forRequestedReviewsReviewedBy, forRequestedReviewsRequestedBetween, forPullRequestsOpenedBy, forPullRequestsMergedBetween } from "../segments";
 import { formatHours } from "../timeUtils";
 import { DataBucket } from "../DataBucket";
 import { mergedPullRequestOpeners, reviewersReviewed } from "../queries";
-import { timeToMergePullRequests, timeToReviewRequests, timeToReworkAfterReviews, weeklyCodingDays, dailyInProgressPrCount } from "../metrics";
+import { timeToMergePullRequests, timeToReviewRequests, timeToReworkAfterReviews, weeklyCodingDays, dailyInProgressPrCount, weeklyPrsMerged } from "../metrics";
 import PullRequestList from './PullRequestList';
 import { useStyles } from "../App";
 import { DayList } from "./DayList";
@@ -171,6 +171,22 @@ const Dashboard = ({data}: Props) => {
         rowFilter={forMergedPullRequestsOpenedBy}
         dateFilter={forPullRequestsOpenedBetween}
         text={segment => formatHours(timeToMergePullRequests(segment))}
+      />
+    </Paper>
+    <Paper className={classes.main}>
+      <Typography variant="h3" gutterBottom>
+        weekly pull requests merged 
+      </Typography>
+      <Typography variant="caption" gutterBottom>
+        the average number of pull requests merged each week
+      </Typography>
+      <DateBucketTable
+        segment={data}
+        detail={PullRequestList}
+        rows={mergedPullRequestOpeners}
+        rowFilter={forMergedPullRequestsOpenedBy}
+        dateFilter={forPullRequestsMergedBetween}
+        text={(segment, start, end) => weeklyPrsMerged(segment, start, end).toLocaleString()}
       />
     </Paper>
     <Paper className={classes.main}>

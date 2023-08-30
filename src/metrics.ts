@@ -118,6 +118,24 @@ export const timeToMergePullRequests = (data: DataBucket) => {
   return moment.duration(mean(dataPoints));
 };
 
+export const weeklyPrsMerged = (data: DataBucket, start?: Moment, end?: Moment) => {
+
+  const commitDates = data.pullRequests
+    .flatMap(({commits}) => commits.map(commit => moment(commit.date)))
+
+  const range = moment.range(start || moment.min(commitDates), end || moment.max(commitDates));
+
+  const dataPoints = [];
+
+  for (const week of Array.from(range.by('week'))) {
+    const weekRange = moment.range(week.clone().startOf('week'), week.clone().endOf('week'));
+    dataPoints.push(data.pullRequests.filter(pr => pr.mergedAt && weekRange.contains(moment(pr.mergedAt))).length)
+  }
+
+  
+  return mean(dataPoints);
+}
+
 export const weeklyCodingDays = (data: DataBucket, start?: Moment, end?: Moment) => {
 
   const commitDates = data.pullRequests

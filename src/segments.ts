@@ -77,6 +77,21 @@ export const forPullRequestsOpenedBetween = (data: DataBucket, start: Moment, en
   return result;
 };
 
+export const forPullRequestsMergedBetween = (data: DataBucket, start: Moment, end: Moment): DataBucket => {
+  const result = new DataBucket(data);
+
+  result.pullRequests = data.pullRequests.filter(({mergedAt}) => mergedAt && moment(mergedAt).isBetween(start, end));
+  result.repositories = data.repositories.filter(({id}) => !!result.pullRequests.find(({repoId}) => repoId === id));
+  result.reviews = data.reviews.filter(({prId, repoFullName}) => !!result.pullRequests.find(
+    (pr) => repoFullName === pr.repoFullName && prId === pr.id)
+  );
+  result.reviewRequests = data.reviewRequests.filter(({prId, repoFullName}) => !!result.pullRequests.find(
+    (pr) => repoFullName === pr.repoFullName && prId === pr.id)
+  );
+
+  return result;
+};
+
 export const forPullRequestsWithWorkOn = (data: DataBucket, day: Moment): DataBucket => {
   const result = new DataBucket(data);
 
