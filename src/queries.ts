@@ -32,7 +32,8 @@ export const reviewRequestAfterRework = (data: DataBucket, subjectReview: Review
 
   return data.root.reviewRequests
     .filter(request =>
-      request.prId === subjectReview.prId
+      request.repoFullName === subjectReview.repoFullName
+      && request.prId === subjectReview.prId
       && request.requestedReviewer === subjectReview.reviewer
       && moment(request.requestedAt).isAfter(subjectReview.reviewedAt)
       && (!nextReview || moment(request.requestedAt).isBefore(nextReview.reviewedAt))
@@ -44,7 +45,8 @@ export const reviewRequestAfterRework = (data: DataBucket, subjectReview: Review
 export const reviewAfterRework = (data: DataBucket, subjectReview: Review): Review | undefined => {
   return data.root.reviews
     .filter(review =>
-      review.prId === subjectReview.prId
+      review.repoFullName === subjectReview.repoFullName
+      && review.prId === subjectReview.prId
       && review.reviewer === subjectReview.reviewer
       && moment(review.reviewedAt).isAfter(subjectReview.reviewedAt)
     )

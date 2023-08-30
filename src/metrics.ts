@@ -59,7 +59,7 @@ export const timeToReworkAfterReview = (data: DataBucket, review: Review) => {
 
   const request = reviewRequestAfterRework(data, review);
   const nextReview = reviewAfterRework(data, review);
-
+    
   if (nextReview) {
     const timeToReview = moment.range(moment(review.reviewedAt), moment(nextReview.reviewedAt));
     return workHours(timeToReview);

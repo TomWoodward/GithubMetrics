@@ -129,7 +129,7 @@ export default class DataClient extends DataBucket {
           repoId: this.repositories.find(r => r.fullName == repoFullName)!.id,
           id: pr.number,
         });
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
         setProgress(`[ERROR]: ${e.message}`)
       }
